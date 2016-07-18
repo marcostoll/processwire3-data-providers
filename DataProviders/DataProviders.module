@@ -7,8 +7,6 @@
  * @copyright 2016, Marco Stoll, https://github.com/marcostoll
  * @filesource
  * @todo support chunk rendering
- * @todo README.md (chapter "extending the DataProviders module")
- * @todo upload to Github
  */
 
 namespace ffe\ProcessWire3;
