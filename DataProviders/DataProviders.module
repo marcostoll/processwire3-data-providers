@@ -1,0 +1,123 @@
+<?php
+/**
+ * Class definition of DataProviders
+ *
+ * @author Marco Stoll <marco@fast-forward-encoding.de>
+ * @version 1.0.0
+ * @copyright 2016, Marco Stoll, https://github.com/marcostoll
+ * @filesource
+ * @todo support chunk rendering
+ * @todo README.md (chapter "extending the DataProviders module")
+ * @todo upload to Github
+ */
+
+namespace ffe\ProcessWire3;
+
+use ffe\ProcessWire3\DataProviders\DataProvidersFactory;
+use ffe\ProcessWire3\DataProviders\Psr4Autoloader;
+use ProcessWire\HookEvent;
+use ProcessWire\Module;
+use ProcessWire\Page;
+use ProcessWire\WireData;
+
+/**
+ * Class DataProviders
+ *
+ * @package ffe/ProcessWire3
+ * @property string $baseNs
+ * @property string $basePath
+ */
+class DataProviders extends WireData implements Module
+{
+    /**
+     * Retrieves the module information
+     *
+     * @return array
+     */
+	public static function getModuleInfo()
+    {
+		return [
+			'title' => 'Data Providers',
+			'version' => 101,
+			'summary' => 'Define data providers for templates or chunks to prepare data or process actions',
+            'requires' => 'ProcessWire>=3.0.25',
+            'autoload' => 'template!=admin',
+            'href' => 'https://github.com/marcostoll/processwire3-data-providers'
+		];
+	}
+
+	/**
+	 * Initialize the module
+	 *
+	 * Implementation of the Module interface
+	 *
+	 * ProcessWire calls this when the module is loaded. For 'autoload' modules, this will be called
+	 * when ProcessWire's API is ready. As a result, this is a good place to attach hooks.
+	 *
+	 * @see http://processwire.com/apigen/class-Module.html
+	 */
+	public function init()
+    {
+		// register autoloader
+		require_once($this->wire('config')->paths->DataProviders . 'src/ffe/Psr4Autoloader.php');
+		$loader = new Psr4Autoloader();
+		$loader->register();
+		$loader->addNamespace(
+			'ffe\ProcessWire3\DataProviders',
+			$this->wire('config')->paths->DataProviders . 'src/ffe/DataProviders'
+		);
+        $loader->addNamespace(
+            trim($this->baseNs, '\\ '),
+            $this->wire('config')->paths->root . trim($this->basePath, '/ ')
+        );
+
+		// add hooks
+		$this->addHookBefore('Page::render', $this, 'beforePageRender');
+		$this->addHook('Page::renderChunk', $this, 'renderChunk');
+	}
+
+	/**
+	 * Hook callback for Page::render
+	 *
+	 * This enables searching for PageDataProvider classes defined
+	 * for the current page and executing their populate() methods.
+	 *
+	 * After that page rendering will continue as normal.
+	 *
+	 * @param HookEvent $event The hook event
+	 */
+	public function beforePageRender(HookEvent $event)
+	{
+        /** @var Page $page */
+		$page = $event->object;
+
+		// don't mess with admin templates
+		if ($page->template == 'admin') return;
+
+		$dataProvider = DataProvidersFactory::getInstance()->getPageDataProvider($page);
+
+		// return if no page data provider defined for given page
+		if (is_null($dataProvider)) return;
+
+		$dataProvider->populate();
+	}
+
+	/**
+	 * Hook callback for Page::renderChunk
+	 *
+	 * This method as added as a hook to each \Page instance.
+	 * The first argument passed must be the path to the chunk file render
+	 * (relative to wire('config')->paths->templates).
+	 *
+	 * You may pass an arbitrary amount of additional arguments which will
+	 * be passed as contextual data to the chunk data provider.
+	 *
+	 * @param HookEvent $event
+     * @return string
+     * @see https://github.com/ryancramerdesign/ProcessWire/issues/1925
+	 */
+	public function renderChunk(HookEvent $event)
+	{
+        print $event->arguments[0];
+	}
+}

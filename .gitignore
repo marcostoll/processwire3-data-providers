@@ -1,0 +1,4 @@
+# IDE and temporary files
+.idea
+*~
+.DS_Store
